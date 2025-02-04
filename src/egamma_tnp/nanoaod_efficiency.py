@@ -6,6 +6,7 @@ import numpy as np  # noqa: F401
 from coffea.analysis_tools import Weights
 from coffea.lumi_tools import LumiMask
 from coffea.nanoevents import NanoAODSchema
+from coffea.nanoevents.methods import nanoaod
 
 from egamma_tnp._base_tagnprobe import BaseTagNProbe
 from egamma_tnp.utils import calculate_photon_SC_eta, custom_delta_r
@@ -26,9 +27,7 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
         probes_abseta_cut=2.5,
         filterbit=None,
         cutbased_id=None,
-        extra_tags_mask=None,
-        extra_probes_mask=None,
-        goldenjson=None,
+        extra_zcands_mask=None,
         extra_filter=None,
         extra_filter_args=None,
         use_sc_eta=False,
@@ -66,14 +65,9 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
         cutbased_id: str, optional
             ID expression to apply to the probes. An example is "cutBased >= 2".
             If None, no cutbased ID is applied. The default is None.
-        extra_tags_mask: str, optional
-            An extra mask to apply to the tags. The default is None.
-            Must be of the form "zcands.tag.<mask> & zcands.tag.<mask> & ...".
-        extra_probes_mask: str, optional
-            An extra mask to apply to the probes. The default is None.
-            Must be of the form "zcands.probe.<mask> & zcands.probe.<mask> & ...".
-        goldenjson: str, optional
-            The golden json to use for luminosity masking. The default is None.
+        extra_zcands_mask: str, optional
+            An extra mask to apply to the Z candidates. The default is None.
+            Must be of the form `zcands.tag/probe.<mask> & zcands.tag/probe.<mask> & ...`.
         extra_filter : Callable, optional
             An extra function to filter the events. The default is None.
             Must take in a coffea NanoEventsArray and return a filtered NanoEventsArray of the events you want to keep.
@@ -127,9 +121,7 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
             tags_abseta_cut=tags_abseta_cut,
             probes_abseta_cut=probes_abseta_cut,
             cutbased_id=cutbased_id,
-            extra_tags_mask=extra_tags_mask,
-            extra_probes_mask=extra_probes_mask,
-            goldenjson=goldenjson,
+            extra_zcands_mask=extra_zcands_mask,
             extra_filter=extra_filter,
             extra_filter_args=extra_filter_args,
             use_sc_eta=use_sc_eta,
@@ -153,14 +145,15 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
         n_of_files = 0
         for dataset in self.fileset.values():
             n_of_files += len(dataset["files"])
-        return f"ElectronTagNProbeFromNanoAOD(Filters: {self.filters}, Number of files: {n_of_files}, Golden JSON: {self.goldenjson})"
+        return f"ElectronTagNProbeFromNanoAOD(Filters: {self.filters}, Number of files: {n_of_files})"
 
     def find_probes(self, events, cut_and_count, mass_range, vars):
         if self.use_sc_eta:
             if "superclusterEta" in events.Electron.fields:
                 events["Electron", "eta_to_use"] = events.Electron.superclusterEta
             else:
-                events["Electron", "eta_to_use"] = events.Electron.eta + events.Electron.deltaEtaSC
+                events["Electron", "superclusterEta"] = events.Electron.eta + events.Electron.deltaEtaSC
+                events["Electron", "eta_to_use"] = events.Electron.superclusterEta
         else:
             events["Electron", "eta_to_use"] = events.Electron.eta
         if self.use_sc_phi:
@@ -169,8 +162,8 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
             events["Electron", "phi_to_use"] = events.Electron.phi
         if self.extra_filter is not None:
             events = self.extra_filter(events, **self.extra_filter_args)
-        if self.goldenjson is not None and not events.metadata.get("isMC"):
-            lumimask = LumiMask(self.goldenjson)
+        if events.metadata.get("goldenJSON") and not events.metadata.get("isMC"):
+            lumimask = LumiMask(events.metadata["goldenJSON"])
             mask = lumimask(events.run, events.luminosityBlock)
             events = events[mask]
 
@@ -186,15 +179,11 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
             pass_cutbased_id_probes = eval(f"zcands.probe.{self.cutbased_id}")
         else:
             pass_cutbased_id_probes = True
-        if self.extra_tags_mask is not None:
-            pass_tag_mask = eval(self.extra_tags_mask)
+        if self.extra_zcands_mask is not None:
+            pass_zcands_mask = eval(self.extra_zcands_mask)
         else:
-            pass_tag_mask = True
-        if self.extra_probes_mask is not None:
-            pass_probe_mask = eval(self.extra_probes_mask)
-        else:
-            pass_probe_mask = True
-        zcands = zcands[pass_tight_id_tags & pass_cutbased_id_probes & pass_tag_mask & pass_probe_mask]
+            pass_zcands_mask = True
+        zcands = zcands[pass_tight_id_tags & pass_cutbased_id_probes & pass_zcands_mask]
 
         if self.avoid_ecal_transition_tags:
             tags = zcands.tag
@@ -224,9 +213,11 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
         if vars == "all":
             vars_tags = [f"tag_Ele_{var}" for var in all_probe_events.tag_Ele.fields]
             vars_probes = [f"el_{var}" for var in all_probe_events.el.fields]
-            vars = vars_tags + vars_probes + ["event", "run", "luminosityBlock"]
+            extra_vars = ["PV_npvs", "Rho_fixedGridRhoAll", "Rho_fixedGridRhoFastjetAll"]
+            vars = vars_tags + vars_probes + extra_vars
             if all_probe_events.metadata.get("isMC"):
                 vars = [*vars, "Pileup_nTrueInt"]
+        vars = [*vars, "event", "run", "luminosityBlock"]
 
         probe_dict = {}
         for var in vars:
@@ -241,8 +232,7 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
                 else:
                     probe_dict[var] = all_probe_events[var]
         probe_dict.update(passing_locs)
-        if not cut_and_count:
-            probe_dict["pair_mass"] = all_probe_events.pair_mass
+        probe_dict["pair_mass"] = all_probe_events.pair_mass
 
         if all_probe_events.metadata.get("isMC"):
             weights = Weights(size=None, storeIndividual=True)
@@ -339,17 +329,6 @@ class ElectronTagNProbeFromNanoAOD(BaseTagNProbe):
         passing_locs = {}
         if filters is not None:
             for filter, isphotonfilter, bit, pt in zip(filters, is_photon_filter, filterbit, trigger_pt):
-                doclist = [x for x in good_events.TrigObj.filterBits.__doc__.split(";") if x.endswith("for Electron")]
-                eledoc = doclist[0] if doclist else None
-                if eledoc is not None:
-                    if bit == 12 and "Leg 1" not in eledoc and "Leg 2" not in eledoc:
-                        import warnings
-
-                        warnings.warn(
-                            f"You are calculating the efficiency of HLT_Ele{trigger_pt}_CaloIdVT_GsfTrkIdT in NanoAOD version < 13. Changing the filterbit to 11.",
-                            stacklevel=2,
-                        )
-                        bit = 11
                 if isphotonfilter:
                     trigobj_pdgid = 22
                 else:
@@ -386,9 +365,7 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
         probes_abseta_cut=2.5,
         filterbit=None,
         cutbased_id=None,
-        extra_tags_mask=None,
-        extra_probes_mask=None,
-        goldenjson=None,
+        extra_zcands_mask=None,
         extra_filter=None,
         extra_filter_args=None,
         use_sc_eta=False,
@@ -428,14 +405,9 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
         cutbased_id: str, optional
             ID expression to apply to the probes. An example is "cutBased >= 2".
             If None, no cutbased ID is applied. The default is None.
-        extra_tags_mask: str, optional
-            An extra mask to apply to the tags. The default is None.
-            Must be of the form "zcands.tag.<mask> & zcands.tag.<mask> & ...".
-        extra_probes_mask: str, optional
-            An extra mask to apply to the probes. The default is None.
-            Must be of the form "zcands.probe.<mask> & zcands.probe.<mask> & ...".
-        goldenjson: str, optional
-            The golden json to use for luminosity masking. The default is None.
+        extra_zcands_mask: str, optional
+            An extra mask to apply to the Z candidates. The default is None.
+            Must be of the form `zcands.tag/probe.<mask> & zcands.tag/probe.<mask> & ...`.
         extra_filter : Callable, optional
             An extra function to filter the events. The default is None.
             Must take in a coffea NanoEventsArray and return a filtered NanoEventsArray of the events you want to keep.
@@ -489,9 +461,7 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
             tags_abseta_cut=tags_abseta_cut,
             probes_abseta_cut=probes_abseta_cut,
             cutbased_id=cutbased_id,
-            extra_tags_mask=extra_tags_mask,
-            extra_probes_mask=extra_probes_mask,
-            goldenjson=goldenjson,
+            extra_zcands_mask=extra_zcands_mask,
             extra_filter=extra_filter,
             extra_filter_args=extra_filter_args,
             use_sc_eta=use_sc_eta,
@@ -516,9 +486,16 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
         n_of_files = 0
         for dataset in self.fileset.values():
             n_of_files += len(dataset["files"])
-        return f"PhotonTagNProbeFromNanoAOD(Filters: {self.filters}, Number of files: {n_of_files}, Golden JSON: {self.goldenjson})"
+        return f"PhotonTagNProbeFromNanoAOD(Filters: {self.filters}, Number of files: {n_of_files})"
 
     def find_probes(self, events, cut_and_count, mass_range, vars):
+        # TODO: remove this temporary fix when https://github.com/scikit-hep/vector/issues/498 is resolved
+        photon_dict = {field: events.Photon[field] for field in events.Photon.fields} | {
+            "mass": dak.zeros_like(events.Photon.pt),
+            "charge": dak.zeros_like(events.Photon.pt),
+        }
+        events["Photon"] = dak.zip(photon_dict, with_name="Photon", behavior=nanoaod.behavior)
+
         if self.use_sc_eta:
             if "superclusterEta" not in events.Photon.fields:
                 events["Photon", "superclusterEta"] = calculate_photon_SC_eta(events.Photon, events.PV)
@@ -538,8 +515,8 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
             events["Electron", "phi_to_use"] = events.Electron.phi
         if self.extra_filter is not None:
             events = self.extra_filter(events, **self.extra_filter_args)
-        if self.goldenjson is not None and not events.metadata.get("isMC"):
-            lumimask = LumiMask(self.goldenjson)
+        if events.metadata.get("goldenJSON") and not events.metadata.get("isMC"):
+            lumimask = LumiMask(events.metadata["goldenJSON"])
             mask = lumimask(events.run, events.luminosityBlock)
             events = events[mask]
 
@@ -565,15 +542,11 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
             pass_cutbased_id_probes = eval(f"zcands.probe.{self.cutbased_id}")
         else:
             pass_cutbased_id_probes = True
-        if self.extra_tags_mask is not None:
-            pass_tag_mask = eval(self.extra_tags_mask)
+        if self.extra_zcands_mask is not None:
+            pass_zcands_mask = eval(self.extra_zcands_mask)
         else:
-            pass_tag_mask = True
-        if self.extra_probes_mask is not None:
-            pass_probe_mask = eval(self.extra_probes_mask)
-        else:
-            pass_probe_mask = True
-        zcands = zcands[pass_tight_id_tags & pass_cutbased_id_probes & pass_tag_mask & pass_probe_mask]
+            pass_zcands_mask = True
+        zcands = zcands[pass_tight_id_tags & pass_cutbased_id_probes & pass_zcands_mask]
 
         if self.avoid_ecal_transition_tags:
             tags = zcands.tag
@@ -604,9 +577,11 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
         if vars == "all":
             vars_tags = [f"tag_Ele_{var}" for var in all_probe_events.tag_Ele.fields]
             vars_probes = [f"ph_{var}" for var in all_probe_events.ph.fields]
-            vars = vars_tags + vars_probes + ["event", "run", "luminosityBlock"]
+            extra_vars = ["PV_npvs", "Rho_fixedGridRhoAll", "Rho_fixedGridRhoFastjetAll"]
+            vars = vars_tags + vars_probes + extra_vars
             if all_probe_events.metadata.get("isMC"):
                 vars = [*vars, "Pileup_nTrueInt"]
+        vars = [*vars, "event", "run", "luminosityBlock"]
 
         probe_dict = {}
         for var in vars:
@@ -621,8 +596,7 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
                 else:
                     probe_dict[var] = all_probe_events[var]
         probe_dict.update(passing_locs)
-        if not cut_and_count:
-            probe_dict["pair_mass"] = all_probe_events.pair_mass
+        probe_dict["pair_mass"] = all_probe_events.pair_mass
 
         if all_probe_events.metadata.get("isMC"):
             weights = Weights(size=None, storeIndividual=True)
@@ -648,9 +622,6 @@ class PhotonTagNProbeFromNanoAOD(BaseTagNProbe):
             probe_dict["weight"] = weights.partial_weight(include=["PUWeight", "genWeight"])
             probe_dict["weight_gen"] = weights.partial_weight(include=["genWeight"])
             probe_dict["weight_total"] = weights.weight()
-
-        final_probe_dict = {k: v for k, v in probe_dict.items() if "to_use" not in k}
-        probes = dak.zip(final_probe_dict, depth_limit=1)
 
         final_probe_dict = {k: v for k, v in probe_dict.items() if "to_use" not in k}
         probes = dak.zip(final_probe_dict, depth_limit=1)

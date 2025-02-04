@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "egamma-tnp"
-description = "E/Gamma HLT efficiency from NanoAOD using Tag and Probe."
+description = "E/Gamma Tag & Probe framework."
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
 requires-python = ">=3.8"
@@ -52,7 +52,11 @@ dev = [
 ]
 
 [project.scripts]
+run_analysis = "scripts.run_analysis:main"
 dataset_query = "scripts.dataset_query:main"
+merge_parquet = "scripts.merge_parquet:main"
+prepare_histograms = "scripts.prepare_histograms:main"
+fetch_datasets = "scripts.fetch_datasets:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/egamma_tnp", "scripts"]
@@ -108,6 +112,7 @@ extend-select = [
 ignore = [
     "PLR",     # Design related pylint codes
     "ISC001",  # Conflicts with the formatter in 0.1.2
+    "G004",    # Logging f-string
 ]
 unfixable = [
     "T20",  # Removes print statements
@@ -118,3 +123,5 @@ isort.required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.per-file-ignores]
 "**.ipynb" = ["B008", "T20", "I002", "E402", "E703", "B018"]
 "src/egamma_tnp/nanoaod_efficiency.py" = ["PLW2901"]
+"src/egamma_tnp/__init__.py" = ["E402"]
+"tests/example_extra_filter.py" = ["T201"]

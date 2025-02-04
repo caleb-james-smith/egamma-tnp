@@ -39,7 +39,7 @@ def test_pileup_ntuples(do_preprocess, allow_read_errors_with_report):
     tag_n_probe = ElePt_WPTight_Gsf(
         fileset,
         trigger_pt=32,
-        from_ntuples=True,
+        mode="from_mini_ntuples",
         tags_pt_cut=35,
         probes_pt_cut=5,
         use_sc_eta=False,
@@ -116,7 +116,6 @@ def test_pileup_nanoaod(do_preprocess, allow_read_errors_with_report):
         probes_pt_cut=29,
         avoid_ecal_transition_tags=True,
         avoid_ecal_transition_probes=True,
-        goldenjson=None,
     )
 
     res = tag_n_probe.get_1d_pt_eta_phi_tnp_histograms(

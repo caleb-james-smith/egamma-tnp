@@ -18,9 +18,7 @@ class BaseTagNProbe:
         tags_abseta_cut,
         probes_abseta_cut,
         cutbased_id,
-        extra_tags_mask,
-        extra_probes_mask,
-        goldenjson,
+        extra_zcands_mask,
         extra_filter,
         extra_filter_args,
         use_sc_eta,
@@ -54,9 +52,7 @@ class BaseTagNProbe:
         self.tags_abseta_cut = tags_abseta_cut
         self.probes_abseta_cut = probes_abseta_cut
         self.cutbased_id = cutbased_id
-        self.extra_tags_mask = extra_tags_mask
-        self.extra_probes_mask = extra_probes_mask
-        self.goldenjson = goldenjson
+        self.extra_zcands_mask = extra_zcands_mask
         self.extra_filter = extra_filter
         self.extra_filter_args = extra_filter_args
         self.use_sc_eta = use_sc_eta
@@ -313,7 +309,7 @@ class BaseTagNProbe:
         mass_range=None,
         plateau_cut=None,
         eta_regions_pt=None,
-        eta_regions_eta=None,
+        phi_regions_eta=None,
         eta_regions_phi=None,
         vars=None,
         uproot_options=None,
@@ -345,11 +341,11 @@ class BaseTagNProbe:
                 where name is the name of the region and etamin and etamax are the absolute eta bounds.
                 The Pt histograms will be split into those eta regions.
                 The default is to avoid the ECAL transition region meaning |eta| < 1.4442 or 1.566 < |eta| < 2.5.
-            eta_regions_eta : dict, optional
-                A dictionary of the form `{"name": [etamin, etamax], ...}`
-                where name is the name of the region and etamin and etamax are the absolute eta bounds.
-                The Eta histograms will be split into those eta regions.
-                The default is to use the entire |eta| < 2.5 region.
+            phi_regions_eta : dict, optional
+                A dictionary of the form `{"name": [phimin, phimax], ...}`
+                where name is the name of the region and phimin and phimax are the absolute phi bounds.
+                The Eta histograms will be split into those phi regions.
+                The default is to use the entire |phi| < 3.32 region.
             eta_regions_phi : dict, optional
                 A dictionary of the form `{"name": [etamin, etamax], ...}`
                 where name is the name of the region and etamin and etamax are the absolute eta bounds.
@@ -409,7 +405,7 @@ class BaseTagNProbe:
                 vars=vars,
                 plateau_cut=plateau_cut,
                 eta_regions_pt=eta_regions_pt,
-                eta_regions_eta=eta_regions_eta,
+                phi_regions_eta=phi_regions_eta,
                 eta_regions_phi=eta_regions_phi,
             )
         else:
@@ -421,7 +417,7 @@ class BaseTagNProbe:
                 vars=vars,
                 plateau_cut=plateau_cut,
                 eta_regions_pt=eta_regions_pt,
-                eta_regions_eta=eta_regions_eta,
+                phi_regions_eta=phi_regions_eta,
                 eta_regions_phi=eta_regions_phi,
             )
 
@@ -527,7 +523,7 @@ class BaseTagNProbe:
                 vars=vars,
                 plateau_cut=None,
                 eta_regions_pt=None,
-                eta_regions_eta=None,
+                phi_regions_eta=None,
                 eta_regions_phi=None,
             )
         else:
@@ -539,7 +535,7 @@ class BaseTagNProbe:
                 vars=vars,
                 plateau_cut=None,
                 eta_regions_pt=None,
-                eta_regions_eta=None,
+                phi_regions_eta=None,
                 eta_regions_phi=None,
             )
 
@@ -597,7 +593,7 @@ class BaseTagNProbe:
         vars,
         plateau_cut,
         eta_regions_pt,
-        eta_regions_eta,
+        phi_regions_eta,
         eta_regions_phi,
     ):
         from egamma_tnp.utils import (
@@ -615,7 +611,7 @@ class BaseTagNProbe:
                 failing_probes,
                 plateau_cut=plateau_cut,
                 eta_regions_pt=eta_regions_pt,
-                eta_regions_eta=eta_regions_eta,
+                phi_regions_eta=phi_regions_eta,
                 eta_regions_phi=eta_regions_phi,
                 vars=vars,
             )
@@ -635,7 +631,7 @@ class BaseTagNProbe:
         vars,
         plateau_cut,
         eta_regions_pt,
-        eta_regions_eta,
+        phi_regions_eta,
         eta_regions_phi,
     ):
         from egamma_tnp.utils import (
@@ -653,7 +649,7 @@ class BaseTagNProbe:
                 failing_probes,
                 plateau_cut=plateau_cut,
                 eta_regions_pt=eta_regions_pt,
-                eta_regions_eta=eta_regions_eta,
+                phi_regions_eta=phi_regions_eta,
                 eta_regions_phi=eta_regions_phi,
                 vars=vars,
             )

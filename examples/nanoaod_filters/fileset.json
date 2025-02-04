@@ -1,0 +1,8 @@
+{
+    "EGamma0_Run2023C-22Sep2023_v1-v1_NANOAOD":{
+        "files":
+            {
+                "root://cmsxrootd.fnal.gov//store/data/Run2023C/EGamma0/NANOAOD/22Sep2023_v1-v1/2540000/15785855-02ad-4ca7-95e8-92d42c6c9423.root": "Events"
+            }
+        }
+}
