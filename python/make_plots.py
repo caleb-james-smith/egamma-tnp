@@ -12,11 +12,25 @@ def main():
     tools.makeDir(plot_dir)
 
     with open(input_file, "rb") as f:
-        histos = pickle.load(f)
+        histCollection = pickle.load(f)
     
-    hist = histos['pt']['barrel']['passing']
+    #print("histCollection:")
+    #print(histCollection)
+
+    printKeys(histCollection)
+
+    hist = histCollection['pt']['barrel']['passing']
 
     plotHist(hist, plot_dir, output_file)
+
+def printKeys(histCollection):
+    print("Keys:")
+    for key_1 in histCollection:
+        print(" - {0}".format(key_1))
+        for key_2 in histCollection[key_1]:
+            print("  - {0}".format(key_2))
+            for key_3 in histCollection[key_1][key_2]:
+                print("   - {0}".format(key_3))
 
 def plotHist(hist, plot_dir, output_file):
     # Create a figure and an axes object
